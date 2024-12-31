@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dr. Spine</title>
+    <style>
+        /* Basic styling for layout */
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            margin: 0;
+            padding: 0;
+            height: 100vh;
+        }
+
+        .sidebar {
+            width: 30%;
+            border-right: 1px solid #ddd;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .search-bar {
+            padding: 10px;
+            border-bottom: 1px solid #ddd;
+        }
+
+        .search-bar input {
+            width: 100%;
+            padding: 8px;
+            font-size: 16px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+
+        .chat-list {
+            flex: 1;
+            overflow-y: auto;
+        }
+
+        .chat-item {
+            padding: 15px;
+            border-bottom: 1px solid #f1f1f1;
+            cursor: pointer;
+        }
+
+        .chat-item.active {
+            background-color: #e0f7fa;
+        }
+
+        .chat-item p {
+            margin: 0;
+            font-size: 16px;
+        }
+
+        .chat-content {
+            width: 70%;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .chat-header {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 15px;
+            border-bottom: 1px solid #ddd;
+            padding-bottom: 10px;
+        }
+
+        .message-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 10px;
+        }
+
+        .date-divider {
+            text-align: center;
+            margin: 10px 0;
+            font-weight: bold;
+            color: #555;
+        }
+
+        .message {
+            margin: 10px 0;
+        }
+
+        .message.sent {
+            text-align: right;
+        }
+
+        .message.received {
+            text-align: left;
+        }
+
+        .message p {
+            display: inline-block;
+            padding: 10px;
+            border-radius: 8px;
+            max-width: 70%;
+            position: relative;
+        }
+
+        .message.sent p {
+            background-color: #dcf8c6;
+        }
+
+        .message.received p {
+            background-color: #f1f1f1;
+        }
+
+        .timestamp {
+            font-size: 12px;
+            color: #888;
+            margin-left: 10px;
+            vertical-align: middle;
+        }
+
+        .date-divider {
+            text-align: center;
+            margin: 10px 0;
+            font-weight: bold;
+            color: #555;
+            background-color: #e0e0e0;
+            padding: 5px 10px;
+            border-radius: 10px;
+            font-size: 0.9em;
+        }
+        
+        .message.received p {
+            background-color: #f1f1f1;
+            padding: 10px;
+            border-radius: 8px;
+            max-width: 70%;
+            display: inline-block;
+            margin: 5px 0;
+        }
+        
+        .message.sent p {
+            background-color: #dcf8c6;
+            padding: 10px;
+            border-radius: 8px;
+            max-width: 70%;
+            display: inline-block;
+            margin: 5px 0;
+            text-align: right;
+        }
+        
+    </style>
+</head>
+<body>
+
+<div class="sidebar">
+    <div class="search-bar">
+        <input type="text" id="searchInput" placeholder="Search or start a new chat...">
+    </div>
+    <div class="chat-list" id="chatList">
+        <!-- Dynamic list of phone numbers will go here -->
+    </div>
+</div>
+
+<div class="chat-content">
+    <div class="chat-header" id="chatHeader">Select a chat to view messages</div>
+    <div class="message-list" id="messageList">
+        <!-- Dynamic messages and dates will be displayed here -->
+    </div>
+</div>
+
+<script>
+    const chatList = document.getElementById("chatList");
+    const messageList = document.getElementById("messageList");
+    const chatHeader = document.getElementById("chatHeader");
+    const searchInput = document.getElementById("searchInput");
+
+    // Fetch and render the list of phone numbers
+    async function fetchPhoneNumbers() {
+        try {
+            const response = await fetch("/phone-numbers/");
+            const data = await response.json();
+            renderChatList(data.phoneNumbers);
+            
+            // Automatically open the latest chat when the page loads
+            if (data.phoneNumbers.length > 0) {
+                openChat(data.phoneNumbers[0]);
+            }
+        } catch (error) {
+            console.error("Error fetching phone numbers:", error);
+        }
+    }
+
+    // Render the chat list
+    function renderChatList(phoneNumbers) {
+        chatList.innerHTML = "";
+        phoneNumbers.forEach(phoneNumber => {
+            const chatItem = document.createElement("div");
+            chatItem.classList.add("chat-item");
+            chatItem.dataset.phoneNumber = phoneNumber;
+            chatItem.innerHTML = `<p>${phoneNumber}</p>`;
+            chatItem.addEventListener("click", () => openChat(phoneNumber));
+            chatList.appendChild(chatItem);
+        });
+    }
+
+    // Fetch and display messages for the selected phone number
+    async function openChat(phoneNumber) {
+        chatHeader.textContent = `Chat with ${phoneNumber}`;
+        messageList.innerHTML = "";
+
+        try {
+            const response = await fetch(`/messages/${phoneNumber}/`);
+            const data = await response.json();
+
+            let currentDate = null;
+
+            data.messages.forEach(message => {
+                const messageDiv = document.createElement("div");
+
+                // Check if we need to add a date divider
+                if (message.type === "date") {
+                    const formattedDate = formatDate(message.date);
+                    if (currentDate !== formattedDate) {
+                        currentDate = formattedDate;
+                        const dateDivider = document.createElement("div");
+                        dateDivider.classList.add("date-divider");
+                        dateDivider.innerHTML = `<span>${formattedDate}</span>`;
+                        messageList.appendChild(dateDivider);
+                    }
+                } else {
+                    // Determine if the message is incoming or outgoing
+                    if (message.message_body) {
+                        // Render received message
+                        const receivedDiv = document.createElement("div");
+                        receivedDiv.classList.add("message", "received");
+                        receivedDiv.innerHTML = `<p>${message.message_body} <span class="timestamp">${message.timestamp}</span></p>`;
+                        messageList.appendChild(receivedDiv);
+                    }
+                    
+                    if (message.response_body) {
+                        // Render sent response
+                        const sentDiv = document.createElement("div");
+                        sentDiv.classList.add("message", "sent");
+                        sentDiv.innerHTML = `<p>${message.response_body} <span class="timestamp">${message.timestamp}</span></p>`;
+                        messageList.appendChild(sentDiv);
+                    }
+                }
+            });
+        } catch (error) {
+            console.error("Error fetching messages:", error);
+        }
+
+        // Highlight the active chat item
+        document.querySelectorAll(".chat-item").forEach(item => item.classList.remove("active"));
+        document.querySelector(`[data-phone-number="${phoneNumber}"]`).classList.add("active");
+    }
+
+    // Helper function to format the date as "Today", "Yesterday", or a specific date
+    function formatDate(dateString) {
+        const date = new Date(dateString);
+        const today = new Date();
+        const yesterday = new Date(today);
+        yesterday.setDate(today.getDate() - 1);
+
+        if (date.toDateString() === today.toDateString()) {
+            return "Today";
+        } else if (date.toDateString() === yesterday.toDateString()) {
+            return "Yesterday";
+        } else {
+            return date.toLocaleDateString("en-US", {
+                year: "numeric",
+                month: "long",
+                day: "numeric",
+            });
+        }
+    }
+
+    // Set up polling to refresh chat every 10 seconds
+    setInterval(() => {
+        const activeChatItem = document.querySelector(".chat-item.active");
+        if (activeChatItem) {
+            const phoneNumber = activeChatItem.dataset.phoneNumber;
+            openChat(phoneNumber);
+        }
+    }, 10000); // 10 seconds interval
+
+    // Filter phone numbers based on search input
+    searchInput.addEventListener("input", (e) => {
+        const filter = e.target.value.toLowerCase();
+        document.querySelectorAll(".chat-item").forEach((item) => {
+            const phoneNumber = item.textContent.toLowerCase();
+            item.style.display = phoneNumber.includes(filter) ? "block" : "none";
+        });
+    });
+
+    // Initialize by fetching the phone numbers
+    fetchPhoneNumbers();
+</script>
+
+</body>
+</html>
