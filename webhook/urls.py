@@ -14,6 +14,11 @@ urlpatterns = [
 
     path('index', index, name='index'),
 
+
+    
+
+
+
     
 
 ]

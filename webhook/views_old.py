@@ -23,7 +23,7 @@ WEBHOOK_VERIFY_TOKEN = 'harish'
 GRAPH_API_TOKEN = 'EAAIMMdlJzZCQBO3cSvIwXzUHpjkgrIPEunjJMmCCf6aLrWE1iqVtSnqHwXfO2zZBtTB3F6YInIRoNhm0G2ZBwBKzWWYeHTDw1ilf1tkNg2TTQTNdIybUkzy3mqWVu5Ra0APFlTxjpQZCocpxFck1XJUnBHVIlP7zhMEnakDh4OF3V0VDmCupn0B8tbeWkBbu'
 BUSINESS_PHONE_NUMBER_ID = '563086993543640'
 
-def send_whatsapp_message1(phone_number, message, context=None):
+def send_whatsapp_message(phone_number, message, context=None):
     reply_payload = {
         "messaging_product": "whatsapp",
         "to": phone_number,
@@ -52,7 +52,7 @@ def send_whatsapp_message1(phone_number, message, context=None):
 
 
 @csrf_exempt
-def webhook1(request):
+def webhook(request):
     if request.method == 'GET':
         # Handle webhook verification
         mode = request.GET.get('hub.mode')
@@ -191,153 +191,6 @@ def webhook1(request):
         return HttpResponse(status=405)  # Method Not Allowed
 
 
-
-
-
-
-
-
-def send_message(phone_number, template, media_id=None, media_type=None, variables=None):
-    url = f"https://graph.facebook.com/v18.0/{BUSINESS_PHONE_NUMBER_ID}/messages"
-    headers = {
-        "Authorization": f"Bearer {GRAPH_API_TOKEN}",
-        "Content-Type": "application/json"
-    }
-
-    data = {
-        "messaging_product": "whatsapp",
-        "to": phone_number,
-        "type": "template",
-        "template": {
-            "name": template.name,
-            "language": {
-                "code": "en_US"
-            },
-            "components": []
-        }
-    }
-
-    # Adding media if provided
-    if media_id and media_type:
-        data['template']['components'].append({
-            "type": "header",
-            "parameters": [
-                {
-                    "type": media_type,
-                    media_type: {"id": media_id}
-                }
-            ]
-        })
-
-    # Adding variables if provided
-    if variables:
-        data['template']['components'].append({
-            "type": "body",
-            "parameters": [{"type": "text", "text": var} for var in variables]
-        })
-
-    response = requests.post(url, headers=headers, json=data)
-    response_data = response.json()
-    response_status = "Sent" if response.status_code == 200 else "Failed"
-
-    if response.status_code == 200:
-        print(f"Message sent successfully to {phone_number}!")
-    else:
-        print(f"Failed to send message to {phone_number}. Response:", response_data)
-
-    # Logging the message attempt
-    MessageLog.objects.create(
-        template_name=template.name,
-        mobile_number=phone_number,
-        status=response_status,
-    )
-
-    return response
-
-
-
-
-def webhook(request):
-    if request.method == 'GET':
-        # Handle webhook verification
-        mode = request.GET.get('hub.mode')
-        token = request.GET.get('hub.verify_token')
-        challenge = request.GET.get('hub.challenge')
-
-        if mode == 'subscribe' and token == WEBHOOK_VERIFY_TOKEN:
-            return HttpResponse(challenge, status=200)
-        else:
-            return HttpResponse(status=403)
-
-    elif request.method == 'POST':
-        try:
-            data = json.loads(request.body)
-        except json.JSONDecodeError:
-            return HttpResponse(status=400)
-
-        entry = data.get('entry', [])
-        if not entry:
-            return HttpResponse(status=400)
-
-        changes = entry[0].get('changes', [])
-        if not changes:
-            return HttpResponse(status=400)
-
-        value = changes[0].get('value', {})
-        messages = value.get('messages', [])
-        if not messages:
-            return HttpResponse(status=200)  # No message to process
-
-        message = messages[0]
-        message_type = message.get('type')
-
-        if message_type == 'text':
-            phone_number = message.get('from')  # Sender's WhatsApp ID
-            message_body = message.get('text', {}).get('body').strip().lower()
-
-            if not phone_number or not message_body:
-                return HttpResponse(status=400)
-
-            # Template logic for message_body '1'
-            if message_body == '1':
-                try:
-                    # Fetch the template with the name '1' from the database
-                    template = Template.objects.get(name='1')
-                    send_message(phone_number, template)
-                    response_text = "Template 1 has been sent!"
-                except Template.DoesNotExist:
-                    response_text = "Sorry, the requested template is not available."
-            
-            else:
-                # Default response if no matching template is found
-                response_text = (
-                    "Welcome to Divyakshetra Hariharapura-DharmaPeetam of Sri AdiShankaracharya Sharada LakshmiNarasimha\n"
-                    "Type 1 for Information on Divyakshetra Hariharapura\n"
-                    "Type 2 for Seva Booking\n"
-                    "Type 3 for Room booking\n"
-                    "Type 4 to follow us on Social Media\n"
-                    "Type 5 for Location Details\n"
-                    "Type 6 for Enquiries"
-                )
-
-            # Send the response to the customer
-            send_whatsapp_message(phone_number, response_text, context=message.get('id'))
-
-            # Save the message and response to the database
-            try:
-                Message.objects.create(
-                    phone_number=phone_number,
-                    message_body=message_body,
-                    response_body=response_text
-                )
-            except Exception as e:
-                print(f"Error saving message: {e}")
-                return HttpResponse(status=500)
-
-        return HttpResponse(status=200)
-
-    else:
-        return HttpResponse(status=405)  # Method Not Allowed
 
 
 

@@ -33,3 +33,16 @@ class Message(models.Model):
 
     def __str__(self):
         return f"Message from {self.phone_number} at {self.timestamp}"
+
+
+
+
+class Template(models.Model):
+    name = models.CharField(max_length=100, primary_key=True)
+    language = models.CharField(max_length=100)
+    category = models.CharField(max_length=100)
+    template_type = models.CharField(max_length=100)
+    message = models.TextField()
+
+    def __str__(self):
+        return self.name
